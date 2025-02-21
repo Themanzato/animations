@@ -103,30 +103,42 @@ class DrawingApp {
         this.canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
         this.canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
 
-        // Eventos táctiles
+        // Eventos táctiles mejorados
         this.canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
             const touch = e.touches[0];
-            const mouseEvent = new MouseEvent('mousedown', {
-                clientX: touch.clientX,
-                clientY: touch.clientY
-            });
-            this.canvas.dispatchEvent(mouseEvent);
+            const rect = this.canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            this.isDrawing = true;
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, y);
         });
 
         this.canvas.addEventListener('touchmove', (e) => {
             e.preventDefault();
+            if (!this.isDrawing) return;
+
             const touch = e.touches[0];
-            const mouseEvent = new MouseEvent('mousemove', {
-                clientX: touch.clientX,
-                clientY: touch.clientY
-            });
-            this.canvas.dispatchEvent(mouseEvent);
+            const rect = this.canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+
+            if (this.currentTool === 'eraser') {
+                this.ctx.globalCompositeOperation = 'destination-out';
+                this.ctx.lineWidth = this.ctx.lineWidth * 2;
+            } else {
+                this.ctx.globalCompositeOperation = 'source-over';
+            }
+
+            this.ctx.lineTo(x, y);
+            this.ctx.stroke();
         });
 
-        this.canvas.addEventListener('touchend', (e) => {
-            const mouseEvent = new MouseEvent('mouseup', {});
-            this.canvas.dispatchEvent(mouseEvent);
+        this.canvas.addEventListener('touchend', () => {
+            this.isDrawing = false;
+            this.ctx.closePath();
         });
     }
 
@@ -161,7 +173,7 @@ class DrawingApp {
         toolGroup.appendChild(postitBtn);
     }
 
-    addPostIt(x = window.innerWidth/2 - 100, y = window.innerHeight/2 - 50) {
+    addPostIt(x = window.innerWidth/2 - 75, y = window.innerHeight/2 - 40) {
         const postit = document.createElement('div');
         postit.className = 'postit';
         postit.style.left = `${x}px`;
@@ -185,31 +197,64 @@ class DrawingApp {
     }
 
     makeElementDraggable(element) {
-        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-        element.onmousedown = dragMouseDown.bind(this);
+        let isDragging = false;
+        let currentX;
+        let currentY;
+        let initialX;
+        let initialY;
+        let xOffset = 0;
+        let yOffset = 0;
 
-        function dragMouseDown(e) {
-            if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON' || e.target.tagName === 'I') return;
-            e.preventDefault();
-            pos3 = e.clientX;
-            pos4 = e.clientY;
-            document.onmouseup = closeDragElement;
-            document.onmousemove = elementDrag;
+        element.addEventListener('touchstart', dragStart, false);
+        element.addEventListener('touchend', dragEnd, false);
+        element.addEventListener('touchmove', drag, false);
+        element.addEventListener('mousedown', dragStart, false);
+        element.addEventListener('mouseup', dragEnd, false);
+        element.addEventListener('mousemove', drag, false);
+
+        function dragStart(e) {
+            if (e.type === 'touchstart') {
+                if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON' || e.target.tagName === 'I') return;
+                initialX = e.touches[0].clientX - xOffset;
+                initialY = e.touches[0].clientY - yOffset;
+            } else {
+                if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON' || e.target.tagName === 'I') return;
+                initialX = e.clientX - xOffset;
+                initialY = e.clientY - yOffset;
+            }
+
+            if (e.target === element) {
+                isDragging = true;
+            }
         }
 
-        function elementDrag(e) {
-            e.preventDefault();
-            pos1 = pos3 - e.clientX;
-            pos2 = pos4 - e.clientY;
-            pos3 = e.clientX;
-            pos4 = e.clientY;
-            element.style.top = (element.offsetTop - pos2) + "px";
-            element.style.left = (element.offsetLeft - pos1) + "px";
+        function dragEnd() {
+            initialX = currentX;
+            initialY = currentY;
+            isDragging = false;
         }
 
-        function closeDragElement() {
-            document.onmouseup = null;
-            document.onmousemove = null;
+        function drag(e) {
+            if (isDragging) {
+                e.preventDefault();
+
+                if (e.type === 'touchmove') {
+                    currentX = e.touches[0].clientX - initialX;
+                    currentY = e.touches[0].clientY - initialY;
+                } else {
+                    currentX = e.clientX - initialX;
+                    currentY = e.clientY - initialY;
+                }
+
+                xOffset = currentX;
+                yOffset = currentY;
+
+                setTranslate(currentX, currentY, element);
+            }
+        }
+
+        function setTranslate(xPos, yPos, el) {
+            el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
         }
     }
 
