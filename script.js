@@ -237,6 +237,19 @@ class DrawingApp {
                 fontSizeInput.placeholder = 'Tamaño de fuente';
                 fontSizeInput.value = '20';
                 content.appendChild(fontSizeInput);
+
+                // Manejar Enter en el input
+                input.addEventListener('keyup', (e) => {
+                    if (e.key === 'Enter') {
+                        const result = {
+                            text: input.value,
+                            fontSize: fontSizeInput.value
+                        };
+                        document.body.removeChild(overlay);
+                        document.body.removeChild(modal);
+                        resolve(result);
+                    }
+                });
             } else {
                 content.innerHTML = `<p>${options.message}</p>`;
             }
@@ -249,11 +262,17 @@ class DrawingApp {
                 btn.className = `modal-button ${button.type || 'secondary'}`;
                 btn.textContent = button.text;
                 btn.onclick = () => {
-                    const result = options.type === 'text' ? {
-                        text: content.querySelector('input[type="text"]').value,
-                        fontSize: content.querySelector('input[type="number"]').value
-                    } : button.value;
-                    
+                    let result;
+                    if (options.type === 'text') {
+                        const textInput = content.querySelector('input[type="text"]');
+                        const sizeInput = content.querySelector('input[type="number"]');
+                        result = textInput.value ? {
+                            text: textInput.value,
+                            fontSize: sizeInput.value
+                        } : null;
+                    } else {
+                        result = button.value;
+                    }
                     document.body.removeChild(overlay);
                     document.body.removeChild(modal);
                     resolve(result);
@@ -272,6 +291,16 @@ class DrawingApp {
             if (options.type === 'text') {
                 content.querySelector('input[type="text"]').focus();
             }
+
+            // Cerrar modal con Escape
+            document.addEventListener('keyup', function closeOnEscape(e) {
+                if (e.key === 'Escape') {
+                    document.body.removeChild(overlay);
+                    document.body.removeChild(modal);
+                    document.removeEventListener('keyup', closeOnEscape);
+                    resolve(null);
+                }
+            });
         });
     }
 
